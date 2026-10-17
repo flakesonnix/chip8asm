@@ -1,25 +1,17 @@
-# Design and binary-format notes
+# DWARF format and architecture
 
-## Inspection and implementation path
+## Architecture
 
-Inspection found only an unrelated knowledge-management workspace: no CHIP-8
-assembler/parser/encoder, no C build rules, and no existing assembler tests. Nothing
-was available to extend or preserve at those stages. The requested empty-project
-fallback was implemented in a new chip8asm/ subdirectory, leaving existing files
-untouched. The supplied flakesonnix/chip8asm GitHub repository was then cloned
-over HTTPS and confirmed empty, so the implementation was transferred into that
-actual clone before final verification. Existing open-source CHIP-8 assemblers were considered; the explicit
-C17 fallback and learning-oriented binary-format implementation favored this small
-standalone project over importing an emulator/framework.
+The assembler and debug writer form a three-stage pipeline:
 
-The implementation plan, now executed:
+1. The two-pass assembler computes guest layout, resolves symbols, and emits a
+   ROM buffer together with source locations for every emitted range.
+2. The DWARF encoder converts those ranges into a version 4 line table, independent
+   of instruction parsing and file I/O.
+3. The ELF writer packages the line table, a compilation unit, and the exact ROM
+   bytes into a fixed-address debug companion.
 
-1. Use a two-pass assembler: retain each emission's location and calculate final
-   guest layout before resolving symbolic operands. Write one normal ROM buffer.
-2. Feed immutable emitted ranges into a separate DWARF line encoder. Package its
-   bytes plus a minimal CU and the exact ROM into a companion ELF.
-3. Independently decode the output, check goldens/edge cases/ROM invariance, run
-   available format validators and sanitizers, and document the supported subset.
+Debug generation reads the assembled program without changing its ROM bytes.
 
 ## From source to an emitted range
 
@@ -44,8 +36,8 @@ array/path invariants. Its Buffer result is independent of ELF integration.
 
 ## Line header: DWARF32 version 4
 
-Consulted the official [DWARF v4 specification](https://dwarfstd.org/doc/DWARF4.pdf),
-notably §6.2 (line machine/header/opcodes), §7.5 (CU/abbreviations), §7.6 (LEB128),
+The encoding follows the [DWARF v4 specification](https://dwarfstd.org/doc/DWARF4.pdf),
+particularly §6.2 (line machine/header/opcodes), §7.5 (CU/abbreviations), §7.6 (LEB128),
 and §7.21 (line opcode encodings, Figures 37 and 38).
 
 All DWARF fixed-width integers here are little endian. A unit begins with:
